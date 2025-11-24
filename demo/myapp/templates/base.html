@@ -1,56 +1,222 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Site com Barra de Navegação</title>
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coleta de Lixo - Lajeado</title>
 
-        /* Estilo da barra de navegação */
-        nav {
-            background-color: #333;
-            overflow: hidden;
-        }
+<!-- Leaflet (Mapa Real) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-        /* Links da barra */
-        nav a {
-            float: left;
-            display: block;
-            color: white;
-            text-align: center;
-            padding: 14px 20px;
-            text-decoration: none;
-        }
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #eef3f7;
+        padding: 30px;
+    }
 
-        /* Efeito ao passar o mouse */
-        nav a:hover {
-            background-color: #575757;
-        }
+    .container {
+        max-width: 480px;
+        margin: auto;
+        background: white;
+        padding: 25px;
+        border-radius: 18px;
+        box-shadow: 0 3px 12px #00000020;
+    }
 
-        /* Conteúdo principal */
-        .conteudo {
-            padding: 20px;
-        }
-    </style>
+    h2 {
+        text-align: center;
+        margin-bottom: 25px;
+    }
+
+    input {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        margin-top: 10px;
+        margin-bottom: 18px;
+        font-size: 15px;
+    }
+
+    button {
+        width: 100%;
+        background: #37c26b;
+        border: none;
+        padding: 14px;
+        color: white;
+        font-size: 16px;
+        border-radius: 12px;
+        cursor: pointer;
+    }
+
+    .resultado {
+        margin-top: 20px;
+        padding: 18px;
+        background: #e8ffe9;
+        border-radius: 12px;
+        display: none;
+        font-size: 17px;
+    }
+
+    /* MAPA REAL */
+    .mapa {
+        margin-top: 20px;
+        width: 100%;
+        height: 260px;
+        background: #d0e6ff;
+        border-radius: 15px;
+        overflow: hidden;
+        display: none;
+        box-shadow: inset 0 0 8px #00000020;
+        position: relative;
+    }
+
+    .horarioMapa {
+        position: absolute;
+        bottom: 10px;
+        width: 100%;
+        text-align: center;
+        font-size: 18px;
+        font-weight: bold;
+        background: white;
+        padding: 6px 0;
+        border-radius: 10px;
+        z-index: 999;
+    }
+</style>
 </head>
+
 <body>
 
-    <nav>
-        <a href="#inicio">Início</a>
-        <a href="#sobre">Sobre</a>
-        <a href="#servicos">Serviços</a>
-        <a href="#contato">Contato</a>
-    </nav>
+<div class="container">
+    <h2>Consultar coleta</h2>
 
-    <div class="conteudo">
-        <h1>Bem-vindo ao meu site feito com django!</h1>
-        <p> um exemplo de texto embaixo pra testar</p>
-        <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgGogFKSEp1nSQODcMVxQDuDNlM3aOY5YK40Q9eB4XvKpC45hhW5Vou16iXcvqcCOkPj8Ef_CZcuB6bkciXsIdHqLx7FL1W1Xndo2ZHLTDMsuYt5gOdOdVZJ0naUo-O3nlT_sRGzqHgXt2X/s1600/both-thumbs-up-smiley.png">
+    <label>Rua</label>
+    <input id="rua" type="text" placeholder="Ex: Rua Benjamin Constant">
+
+    <label>Número</label>
+    <input id="numero" type="text" placeholder="Ex: 123">
+
+    <button onclick="verColeta()">Ver Coleta</button>
+
+    <div class="resultado" id="resultado"></div>
+
+    <div class="mapa" id="mapa">
+        <div class="horarioMapa" id="horarioMapa"></div>
+        <div id="realmap" style="width:100%; height:100%; border-radius:15px;"></div>
     </div>
+</div>
+
+<script>
+let map;
+let marker;
+let rota;
+
+// Inicializa o mapa
+function initMap() {
+    map = L.map('realmap').setView([-29.4597, -51.9644], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+    }).addTo(map);
+}
+
+window.onload = initMap;
+
+// Função anticors usando corsproxy.io
+function buscarEndereco(rua, numero) {
+
+    const query = encodeURIComponent(`${rua} ${numero}, Lajeado, Brasil`);
+
+    const urlReal = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&addressdetails=1&limit=1`;
+
+    // PROXY DE CORS QUE FUNCIONA
+    const urlProxy = `https://corsproxy.io/?${urlReal}`;
+
+    return fetch(urlProxy)
+        .then(r => r.json())
+        .then(resultado => {
+
+            if (!resultado || resultado.length === 0) {
+                throw new Error("Endereço não encontrado");
+            }
+
+            return resultado[0];
+        })
+        .catch(err => {
+            console.error("Erro ao buscar endereço:", err);
+            throw err;
+        });
+}
+
+
+
+
+
+function verColeta() {
+    const rua = document.getElementById("rua").value.trim();
+    const numero = document.getElementById("numero").value.trim();
+    const box = document.getElementById("resultado");
+    const mapaBox = document.getElementById("mapa");
+    const horaBox = document.getElementById("horarioMapa");
+
+    if (!rua || !numero) {
+        box.style.display = "block";
+        box.style.background = "#ffe7e7";
+        box.innerHTML = "⚠️ Preencha rua e número.";
+        mapaBox.style.display = "none";
+        return;
+    }
+
+    // Horário fictício baseado na primeira letra
+    const letra = rua[0].toUpperCase();
+    const horarios = {
+        A: "07:00", B: "09:00", C: "08:00", D: "10:00", E: "07:30",
+        F: "09:30", G: "08:00", H: "10:00", I: "07:00", J: "09:00",
+        K: "08:00", L: "10:00"
+    };
+
+    const horario = horarios[letra] || "08:00";
+
+    box.style.display = "block";
+    box.style.background = "#e8ffe9";
+    box.innerHTML = `
+        🚛 <strong>Coleta para ${rua}, ${numero}, Lajeado</strong><br><br>
+        Próxima coleta: <strong>${horario}</strong>
+    `;
+
+    mapaBox.style.display = "block";
+    horaBox.innerHTML = `Caminhão passa às ${horario}`;
+
+    // Faz busca no mapa real
+    buscarEndereco(rua, numero).then(d => {
+        if (!d || d.length === 0) {
+            alert("Endereço não encontrado.");
+            return;
+        }
+
+        const lat = parseFloat(d[0].lat);
+        const lon = parseFloat(d[0].lon);
+
+        if (marker) map.removeLayer(marker);
+        if (rota) map.removeLayer(rota);
+
+        marker = L.marker([lat, lon]).addTo(map);
+
+        map.setView([lat, lon], 17);
+
+        // Rota até o ponto (fictícia)
+        rota = L.polyline(
+            [
+                [-29.4597, -51.9644], // Ponto fixo no centro de Lajeado
+                [lat, lon]
+            ],
+            { color: "green", weight: 4 }
+        ).addTo(map);
+    });
+}
+</script>
 
 </body>
 </html>
